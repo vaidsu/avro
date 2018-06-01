@@ -31,6 +31,7 @@ import org.apache.avro.Protocol;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData.StringType;
 import org.apache.avro.compiler.specific.SpecificCompiler;
+import org.apache.avro.compiler.specific.SpecificPythonCompiler;
 
 /**
  * A Tool for compiling avro protocols or schemas to Java classes using the Avro
@@ -43,7 +44,7 @@ public class SpecificCompilerTool implements Tool {
       List<String> args) throws Exception {
     if (args.size() < 3) {
       System.err
-          .println("Usage: [-encoding <outputencoding>] [-string] [-bigDecimal] (schema|protocol) input... outputdir");
+          .println("Usage: [-encoding <outputencoding>] [-string] [-bigDecimal] (schema|protocol) input... outputdir is this changing xxxxx?");
       System.err
           .println(" input - input files or directories");
       System.err
@@ -93,6 +94,13 @@ public class SpecificCompilerTool implements Tool {
         SpecificCompiler compiler = new SpecificCompiler(schema);
         executeCompiler(compiler, encoding, stringType, useLogicalDecimal, src, output);
       }
+  }  if ("schemapython".equals(method)) {
+      Schema.Parser parser = new Schema.Parser();
+      for (File src : determineInputs(inputs, SCHEMA_FILTER)) {
+        Schema schema = parser.parse(src);
+        SpecificPythonCompiler compiler = new SpecificPythonCompiler(schema);
+        executePythonCompiler(compiler, encoding, stringType, useLogicalDecimal, src, output);
+      }
     } else if ("protocol".equals(method)) {
       for (File src : determineInputs(inputs, PROTOCOL_FILTER)) {
         Protocol protocol = Protocol.parse(src);
@@ -100,13 +108,27 @@ public class SpecificCompilerTool implements Tool {
         executeCompiler(compiler, encoding, stringType, useLogicalDecimal, src, output);
       }
     } else {
-      System.err.println("Expected \"schema\" or \"protocol\".");
+      System.err.println("Expected \"schema\" or \"protocol\" or \"schemapython\".");
       return 1;
     }
     return 0;
   }
 
   private void executeCompiler(SpecificCompiler compiler,
+                               String encoding,
+                               StringType stringType,
+                               boolean enableDecimalLogicalType,
+                               File src,
+                               File output) throws IOException {
+    compiler.setStringType(stringType);
+    compiler.setEnableDecimalLogicalType(enableDecimalLogicalType);
+    if (encoding != null) {
+      compiler.setOutputCharacterEncoding(encoding);
+    }
+    compiler.compileToDestination(src, output);
+  }
+
+  private void executePythonCompiler(SpecificPythonCompiler compiler,
                                String encoding,
                                StringType stringType,
                                boolean enableDecimalLogicalType,

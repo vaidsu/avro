@@ -241,6 +241,7 @@
           <configuration>
             <consoleOutput>true</consoleOutput>
             <configLocation>checkstyle.xml</configLocation>
+            <skip>true</skip>
           </configuration>
           <!-- Runs by default in the verify phase  (mvn verify or later in the build cycle)
                the 'check' goal will fail the build if it does not pass.  "mvn checkstyle:check"

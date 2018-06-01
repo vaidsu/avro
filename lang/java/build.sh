@@ -34,14 +34,17 @@ else
   VERSION=`cat ../../share/VERSION.txt`
 fi
 
-for target in "$@"
+project=$2
+
+for target in "$1"
 do
 
 function do_dist() {
-  mvn package -DskipTests -Dhadoop.version=1;
+    echo $1
+  mvn package -DskipTests -Dhadoop.version=1 -pl $1;
   rm -rf mapred/target/{classes,test-classes}/;
   rm -rf trevni/avro/target/{classes,test-classes}/;
-  mvn -P dist package -DskipTests -Davro.version=$VERSION javadoc:aggregate
+  mvn -P dist package -DskipTests -Davro.version=$VERSION -pl $1;
 }
 
 case "$target" in
@@ -50,7 +53,7 @@ case "$target" in
     ;;
 
   dist)
-    do_dist
+    do_dist $project
     ;;
 
   clean)
