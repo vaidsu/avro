@@ -1,0 +1,16 @@
+#set ($temp = "")
+#foreach ($schema in $schemas)
+#set ($i = ${this.getImportPath($schema, ".", false)})
+#if ($i != "")
+$i
+#set ($temp = $temp + "'${schema.getName()}'" + ",")
+#end
+#end
+from elasticsearch_dsl import connections
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+connections.create_connection(hosts=['localhost'])
+
+__all__ = [$temp]

@@ -33,6 +33,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.nio.file.Paths;
 
 import org.apache.avro.Conversion;
 import org.apache.avro.Conversions;
@@ -155,7 +156,6 @@ public class SpecificPythonCompiler {
 
   public SpecificPythonCompiler(Schema schema) {
     this();
-    System.out.println("ASDASDASDASDASD");
     enqueue(schema);
     this.protocol = null;
   }
@@ -370,15 +370,49 @@ public class SpecificPythonCompiler {
     return out;
   }
 
+  private void compileInitFile(File dst) throws IOException {
+      File f = new File(Paths.get(dst.toString(), "__init__.py").toString());
+      f.createNewFile();
+      // This is only available in the user template dir, need to add back to the real dir
+      VelocityContext context = new VelocityContext();
+      context.put("schemas", queue);
+      context.put("this", this);
+      String contents = renderTemplate(templateDir+"init.vm", context);
+      Writer fw;
+      if (outputCharacterEncoding != null) {
+        fw = new OutputStreamWriter(new FileOutputStream(f), outputCharacterEncoding);
+      } else {
+        fw = new FileWriter(f);
+      }
+      try {
+        fw.write(contents);
+      } finally {
+        fw.close();
+      }
+  }
+
   /** Generate output under dst, unless existing file is newer than src. */
   public void compileToDestination(File src, File dst) throws IOException {
-      System.out.println("OKAY STEP 3");
+      HashSet<String> pathSets = new HashSet<String>();
+
     for (Schema schema : queue) {
       OutputFile o = compile(schema);
-      o.writeToDestination(src, dst);
+      File f = o.writeToDestination(src, dst);
+      pathSets.add(f.getParentFile().getPath().replace(dst + "/", ""));
     }
     if (protocol != null) {
       compileInterface(protocol).writeToDestination(src, dst);
+    }
+
+    compileInitFile(dst);
+
+    // For each path in the pathSets create an init
+    for (String p: pathSets.toArray(new String[pathSets.size()])) {
+        String createPath = "";
+        for (String eachPath: p.split("/")) {
+            createPath = Paths.get(createPath, eachPath).toString();
+            new File(Paths.get(dst.toString(), createPath, "__init__.py").toString()).createNewFile();
+        }
     }
   }
 
@@ -588,13 +622,19 @@ public class SpecificPythonCompiler {
     return pythonType(schema, fieldName, true);
   }
 
-  public String getImportPath(Schema schema) {
+  public String getImportPath(Schema schema, String relativeDots, Boolean sameDir) {
+
+      String name = schema.getFullName();
+      if (sameDir) {
+          name = schema.getName();
+      }
 
     switch (schema.getType()) {
-    case RECORD: return "from " + schema.getFullName() + " import " + schema.getName();
+    case RECORD: return "from " + relativeDots + name + " import " + schema.getName();
+    case ARRAY: return getImportPath(schema.getElementType(), relativeDots, sameDir);
     case ENUM:
     case MAP:
-      return "";
+        return "";
     default: return "";
     }
   }
@@ -613,7 +653,7 @@ public class SpecificPythonCompiler {
 
     switch (schema.getType()) {
     case RECORD:
-        return getConcatDocType(fieldName, schema.getName() + "()");
+        return getConcatDocType(fieldName, "Nested(" + schema.getName() + ")");
     case ENUM:
     case FIXED:
       return getConcatDocType(fieldName, "Text()");
