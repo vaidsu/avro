@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 import java.nio.file.Paths;
 
@@ -618,8 +619,8 @@ public class SpecificPythonCompiler {
   protected static final Schema NULL_SCHEMA = Schema.create(Schema.Type.NULL);
 
   /** Utility for template use.  Returns the java type for a Schema. */
-  public String pythonType(Schema schema, String fieldName) {
-    return pythonType(schema, fieldName, true);
+  public String pythonESType(Schema schema, Field field) {
+    return pythonESType(schema, field, true);
   }
 
   public String getImportPath(Schema schema, String relativeDots, Boolean sameDir) {
@@ -643,12 +644,27 @@ public class SpecificPythonCompiler {
       return fieldName + " = " + DocType;
   }
 
-  private String pythonType(Schema schema, String fieldName, boolean checkConvertedLogicalType) {
+  private String pythonESType(Schema schema, Field field, boolean checkConvertedLogicalType) {
+
+      String fieldName = field.name();
+      HashMap<String, Object> extraESFieldProps = field.getFieldExtraObject();
+      String innerESType = "";
+
     if (checkConvertedLogicalType) {
       String convertedLogicalType = getConvertedLogicalType(schema);
       if (convertedLogicalType != null) {
         return convertedLogicalType;
       }
+    }
+
+    if (extraESFieldProps != null) {
+        if (extraESFieldProps.get("fields") instanceof HashMap<?,?>) {
+            HashMap<String, String> raw = (HashMap<String, String>) extraESFieldProps.get("fields");
+            innerESType = "fields={'raw':" + "'" + raw.get("raw") + "'}";
+            if (raw.get("raw").equals("keyword")) {
+                innerESType = "fields={'raw': Keyword()}";
+            }
+        }
     }
 
     switch (schema.getType()) {
@@ -658,11 +674,11 @@ public class SpecificPythonCompiler {
     case FIXED:
       return getConcatDocType(fieldName, "Text()");
     case ARRAY:
-      return pythonType(schema.getElementType(), fieldName);
+      return pythonESType(schema.getElementType(), field);
     case MAP:
       return getConcatDocType(fieldName, mangle(schema.getFullName()));
-    case UNION: return pythonType(schema.getTypes().get(schema.getTypes().get(0).equals(NULL_SCHEMA) ? 1 : 0), fieldName);
-    case STRING: return getConcatDocType(fieldName, "Text()");
+    case UNION: return pythonESType(schema.getTypes().get(schema.getTypes().get(0).equals(NULL_SCHEMA) ? 1 : 0), field);
+    case STRING: return getConcatDocType(fieldName, "Text(" + innerESType + ")");
     case BYTES:   return getConcatDocType(fieldName, "Byte()");
     case INT:     return getConcatDocType(fieldName, "Integer()");
     case LONG:    return getConcatDocType(fieldName, "Long()");
@@ -684,23 +700,6 @@ public class SpecificPythonCompiler {
       }
     }
     return null;
-  }
-
-  /** Utility for template use.  Returns the unboxed java type for a Schema. */
-  public String javaUnbox(Schema schema, String fieldName) {
-    String convertedLogicalType = getConvertedLogicalType(schema);
-    if (convertedLogicalType != null) {
-      return convertedLogicalType;
-    }
-
-    switch (schema.getType()) {
-      case INT:     return "int";
-      case LONG:    return "long";
-      case FLOAT:   return "float";
-      case DOUBLE:  return "double";
-      case BOOLEAN: return "boolean";
-      default:      return pythonType(schema, fieldName, false);
-    }
   }
 
   public boolean hasLogicalTypeField(Schema schema) {
@@ -959,7 +958,7 @@ public class SpecificPythonCompiler {
   }
 
   /** Tests whether an unboxed Java type can be set to null */
-  public static boolean isUnboxedpythonTypeNullable(Schema schema) {
+  public static boolean isUnboxedpythonESTypeNullable(Schema schema) {
     switch (schema.getType()) {
     // Primitives can't be null; assume anything else can
     case INT:

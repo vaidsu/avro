@@ -388,6 +388,7 @@ public abstract class Schema extends JsonProperties {
     private final JsonNode defaultValue;
     private final Order order;
     private Set<String> aliases;
+    private HashMap<String, Object> extraObject;
 
     /** @deprecated use {@link #Field(String, Schema, String, Object)} */
     @Deprecated
@@ -405,6 +406,7 @@ public abstract class Schema extends JsonProperties {
       this.doc = doc;
       this.defaultValue = validateDefault(name, schema, defaultValue);
       this.order = order;
+      this.extraObject = null;
     }
     /**
      * @param defaultValue the default value for this field specified using the mapping
@@ -423,6 +425,8 @@ public abstract class Schema extends JsonProperties {
       this(name, schema, doc, JacksonUtils.toJsonNode(defaultValue), order);
     }
     public String name() { return name; };
+    public HashMap<String, Object> getFieldExtraObject() { return extraObject; };
+    public void setFieldExtraObject(HashMap<String, Object> extraObject) { this.extraObject = extraObject; };
     /** The position of this field within the record. */
     public int pos() { return position; }
     /** This field's {@link Schema}. */
@@ -1245,6 +1249,7 @@ public abstract class Schema extends JsonProperties {
           names.space(name.space);
         }
       }
+
       if (PRIMITIVES.containsKey(type)) {         // primitive
         result = create(PRIMITIVES.get(type));
       } else if (type.equals("record") || type.equals("error")) { // record
@@ -1280,6 +1285,7 @@ public abstract class Schema extends JsonProperties {
               new DoubleNode(Double.valueOf(defaultValue.getTextValue()));
           Field f = new Field(fieldName, fieldSchema,
                               fieldDoc, defaultValue, order);
+          f.setFieldExtraObject(getExtraObject(field));
           Iterator<String> i = field.getFieldNames();
           while (i.hasNext()) {                       // add field props
             String prop = i.next();
@@ -1381,6 +1387,13 @@ public abstract class Schema extends JsonProperties {
     return jsonNode != null ? jsonNode.getTextValue() : null;
   }
 
+  private static HashMap<String, Object> getExtraObject(JsonNode container) {
+    JsonNode jsonNode = container.get("extra");
+    ObjectMapper mapper = new ObjectMapper();
+    HashMap<String, Object> out = mapper.convertValue(jsonNode, HashMap.class);
+    return jsonNode != null ? out : null;
+  }
+
   /**
    * Parses a string as Json.
    * @deprecated use {@link org.apache.avro.data.Json#parseJson(String)}
@@ -1436,6 +1449,7 @@ public abstract class Schema extends JsonProperties {
         Schema fSchema = applyAliases(f.schema, seen, aliases, fieldAliases);
         String fName = getFieldAlias(name, f.name, fieldAliases);
         Field newF = new Field(fName, fSchema, f.doc, f.defaultValue, f.order);
+        newF.extraObject = f.extraObject;
         newF.props.putAll(f.props);               // copy props
         newFields.add(newF);
       }

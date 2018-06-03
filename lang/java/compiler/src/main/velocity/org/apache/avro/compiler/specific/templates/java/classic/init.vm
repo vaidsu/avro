@@ -9,8 +9,11 @@ $i
 from elasticsearch_dsl import connections
 import sys
 import os
+from kafka import KafkaProducer
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 connections.create_connection(hosts=['localhost'])
+producer = KafkaProducer(
+        bootstrap_servers="localhost:9092")
 
-__all__ = [$temp]
+__all__ = [$temp 'producer']
