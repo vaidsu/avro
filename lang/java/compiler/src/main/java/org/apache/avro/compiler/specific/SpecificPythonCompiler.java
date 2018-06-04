@@ -633,7 +633,7 @@ public class SpecificPythonCompiler {
     switch (schema.getType()) {
     case RECORD: return "from " + relativeDots + name + " import " + schema.getName();
     case ARRAY: return getImportPath(schema.getElementType(), relativeDots, sameDir);
-    case ENUM:
+    case ENUM: return "from " + relativeDots + name + " import " + schema.getName();
     case MAP:
         return "";
     default: return "";
@@ -642,6 +642,13 @@ public class SpecificPythonCompiler {
 
   private String getConcatDocType(String fieldName, String DocType) {
       return fieldName + " = " + DocType;
+  }
+
+  public Boolean isEnumType(Schema schema) {
+      switch(schema.getType()) {
+          case ENUM: return true;
+          default: return false;
+      }
   }
 
   private String pythonESType(Schema schema, Field field, boolean checkConvertedLogicalType) {
@@ -670,7 +677,7 @@ public class SpecificPythonCompiler {
     switch (schema.getType()) {
     case RECORD:
         return getConcatDocType(fieldName, "Nested(" + schema.getName() + ")");
-    case ENUM:
+    case ENUM: return getConcatDocType(fieldName, "EnumDoc()");
     case FIXED:
       return getConcatDocType(fieldName, "Text()");
     case ARRAY:
@@ -684,7 +691,7 @@ public class SpecificPythonCompiler {
     case LONG:    return getConcatDocType(fieldName, "Long()");
     case FLOAT:   return getConcatDocType(fieldName, "Float()");
     case DOUBLE:  return getConcatDocType(fieldName, "Double()");
-    case BOOLEAN: return getConcatDocType(fieldName, "Bool()");
+    case BOOLEAN: return getConcatDocType(fieldName, "Boolean()");
     case NULL:    return getConcatDocType(fieldName, "None");
     default: throw new RuntimeException("Unknown type: "+schema);
     }
