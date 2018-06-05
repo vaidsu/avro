@@ -81,7 +81,7 @@ class ${this.mangle($schema.getName())}(DocType):
     def _estype_to_pytype(self, estype) -> type:
         if estype == 'text':
             return str
-        elif estype == 'integer':
+        elif estype == 'integer' or estype == 'long':
             return int
         elif estype == 'float':
             return float
@@ -121,7 +121,7 @@ class ${this.mangle($schema.getName())}(DocType):
         for k, each_default in self.get_defaults().items():
             if getattr(self, k) is None:
                 setattr(self, k, each_default)
-                
+
 
     def save(self, validate_only=False, set_defaults=True, **kwargs):
         """Save the document"""
