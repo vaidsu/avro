@@ -1,0 +1,6 @@
+from enum import Enum
+
+class ${this.mangle($schema.getName())}(Enum):
+#foreach ($symbol in ${schema.getEnumSymbols()})
+    ${symbol} = '${symbol}'
+#end

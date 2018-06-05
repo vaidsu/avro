@@ -164,7 +164,7 @@ public class SpecificPythonCompiler {
   SpecificPythonCompiler() {
     this.templateDir =
       System.getProperty("org.apache.avro.specific.templates",
-                         "/org/apache/avro/compiler/specific/templates/java/classic/");
+                         "/org/apache/avro/compiler/specific/templates/python/classic/");
     initializeVelocity();
   }
 

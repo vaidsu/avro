@@ -1,0 +1,141 @@
+from elasticsearch_dsl import *
+from avro import schema
+import io
+from avro import io as avro_io
+from typing import Any
+import json
+import time
+
+class EnumDoc(Text):
+    _param_defs = {
+        'fields': {'type': 'field', 'hash': True},
+        'analyzer': {'type': 'analyzer'},
+        'search_analyzer': {'type': 'analyzer'},
+        'search_quote_analyzer': {'type': 'analyzer'},
+    }
+    name = 'enum'
+
+
+# Internal dependencies
+#foreach ($field in $schema.getFields())
+#set ($i = ${this.getImportPath($field.schema(), ".", true)})
+#if ($i != "")
+$i
+#end
+#end
+
+ENUMS = {
+#foreach ($field in $schema.getFields())
+#if(${this.isEnumType($field.schema())})
+    '${field.name()}': ${field.schema().getName()},
+#end
+#end
+}
+
+class ${this.mangle($schema.getName())}(DocType):
+    """Document Type definition for ${this.mangle($schema.getName())}"""
+
+#foreach ($field in $schema.getFields())
+#if($field.doc())
+    # {$field.doc()}
+#end
+    ${this.pythonESType($field.schema(), $field)}
+#end
+
+    class Meta:
+        """Defines the meta class in the document type that contains index, doc_type and other defines"""
+        index = "${schema.getName().toLowerCase()}"
+        doc_type = "schema"
+
+    def get_defaults(self):
+        return {
+#foreach ($field in $schema.getFields())
+#if(${field.defaultValue()})
+            '${field.name()}': ${field.defaultValue()},
+#end
+#end
+        }
+
+    def to_schema_str(self) -> str:
+        """Get the schema as a string"""
+        return ${this.javaSplit($schema.toString())}
+
+    def to_schema_dict(self) -> dict:
+        """Get the schema as a python dictionary"""
+        return json.loads(self.to_schema_str())
+
+    def to_schema_obj(self) -> Any:
+        """Parse the schema and get the parsed avro object"""
+        return schema.Parse(self.to_schema_str())
+
+    def to_avro_byte_stream(self) -> str:
+        """Convert to Avro byte stream"""
+        # Setting default is mandatory in avro conversion unlike the document mapping
+        self._set_default()
+        writer = io.BytesIO()
+        encoder = avro_io.BinaryEncoder(writer)
+        datum_writer = avro_io.DatumWriter(self.to_schema_obj())
+        datum_writer.write(self.to_dict(), encoder)
+        return writer.getvalue()
+
+    def _estype_to_pytype(self, estype) -> type:
+        if estype == 'text':
+            return str
+        elif estype == 'integer':
+            return int
+        elif estype == 'float':
+            return float
+        elif estype == 'boolean':
+            return bool
+        elif estype == 'byte':
+            return bytes
+        # Need to put the rest
+        return type(None)
+
+    def _validate(self, fieldtypes, datainput):
+        for f, t in fieldtypes.items():
+            try:
+                # If its a nested recurse over the property
+                if t['type'] == 'nested':
+                    if isinstance(datainput[f], list):
+                        for each_input in datainput[f]:
+                            self._validate(t['properties'], each_input if isinstance(each_input, dict) else each_input.to_dict())
+                    else:
+                        self._validate(t['properties'], datainput[f] if isinstance(datainput[f], dict) else datainput[f].to_dict())
+                elif t['type'] == 'enum':
+                    if not datainput[f] in [i.value for i in ENUMS[f]]:
+                        raise TypeError("Field {0} not in the enums {1} instead got {2}".format(f, [i.value for i in ENUMS[f]], datainput[f]))
+                else:
+                    # There is a possibility that it can be a list, if its a list, we just go over one by one and recurse
+                    if isinstance(datainput[f], list):
+                        for idx, each_entry in enumerate(datainput[f]):
+                            if not isinstance(each_entry, self._estype_to_pytype(t['type'])):
+                                raise TypeError("Field {0} is not conforming to the type {1} instead got {2} inside the list of entries index {3}".format(f, self._estype_to_pytype(t['type']), type(datainput[f])), idx)
+                    else:
+                        if not isinstance(datainput[f], self._estype_to_pytype(t['type'])):
+                            raise TypeError("Field {0} is not conforming to the type {1} instead got {2}".format(f, self._estype_to_pytype(t['type']), type(datainput[f])))
+            except KeyError:
+                continue
+
+    def _set_default(self):
+        for k, each_default in self.get_defaults().items():
+            if getattr(self, k) is None:
+                setattr(self, k, each_default)
+                
+
+    def save(self, validate_only=False, set_defaults=True, **kwargs):
+        """Save the document"""
+        self._validate(self._doc_type.mapping.to_dict()['schema']['properties'], self.to_dict())
+        if set_defaults:
+            self._set_default()
+        if not validate_only:
+            super(${this.mangle($schema.getName())}, self).save(**kwargs)
+
+    @staticmethod
+    def from_avro_byte_stream(schema, encoded_stream) -> Any:
+        """Given a byte encoded stream convert into the class object"""
+        reader = io.BytesIO(encoded_stream)
+        decoder = avro_io.BinaryDecoder(reader)
+        datum_reader = avro_io.DatumReader(schema)
+        read_data = datum_reader.read(decoder)
+        return read_data

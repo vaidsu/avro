@@ -1,0 +1,37 @@
+{
+    "namespace": "org.apache.avro.compiler.tests",
+    "type": "record",
+    "name": "SimpleRecord",
+    "fields": [
+      {
+        "name": "name",
+        "type": "string",
+        "default": "default-string",
+        "extra": {
+            "fields": {"raw": "keyword"}
+        }
+      },
+      {
+        "name": "count",
+        "type": "int",
+        "default": 22
+      },
+      {
+        "name": "float",
+        "type": "float",
+        "default": 2.2
+      },
+      {
+        "name": "bytes",
+        "type": "bytes"
+      },
+      {
+        "name": "bool",
+        "type": "boolean"
+      },
+      {
+        "name": "nothing",
+        "type": "null"
+      }
+    ]
+  }
