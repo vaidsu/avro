@@ -125,9 +125,9 @@ class ${this.mangle($schema.getName())}(DocType):
 
     def save(self, validate_only=False, set_defaults=True, **kwargs):
         """Save the document"""
-        self._validate(self._doc_type.mapping.to_dict()['schema']['properties'], self.to_dict())
         if set_defaults:
             self._set_default()
+        self._validate(self._doc_type.mapping.to_dict()['schema']['properties'], self.to_dict())
         if not validate_only:
             super(${this.mangle($schema.getName())}, self).save(**kwargs)
 
