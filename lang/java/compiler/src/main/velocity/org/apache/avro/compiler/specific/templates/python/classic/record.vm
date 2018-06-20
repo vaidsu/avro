@@ -131,6 +131,34 @@ class ${this.mangle($schema.getName())}(DocType):
         if not test_only:
             super(${this.mangle($schema.getName())}, self).save(**kwargs)
 
+    async def async_save(self, test_only=False, set_defaults=True, **kwargs):
+        """Save the document in async fashion"""
+        if set_defaults:
+            self._set_default()
+        self._validate(self._doc_type.mapping.to_dict()['schema']['properties'], self.to_dict())
+        if not test_only:
+            await super(HelloWorldSchema, self).async_save(**kwargs)
+
+    def search(self, using='default'):
+        """Start searching using the DSL Search API"""
+        return Search(using=using)
+
+    def async_search(self, using=None):
+        """Start searching using the Async DSL Search API"""
+        return AsyncSearch(using=using)
+
+    def refresh(self, using='default', index="${schema.getName().toLowerCase()}"):
+        """Refresh the index, useful when there are back to
+          back writes and reads on the same data
+        """
+        return self._doc_type.refresh(index=index, using=using)
+
+    async def async_refresh(self, using=None, index="${schema.getName().toLowerCase()}"):
+        """Async Refresh the index, useful when
+          there are back to back writes and reads on the same data
+        """
+        return await self._doc_type.async_refresh(index=index, using=using)
+
     @staticmethod
     def from_avro_byte_stream(schema, encoded_stream) -> Any:
         """Given a byte encoded stream convert into the class object"""
